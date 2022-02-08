@@ -58,7 +58,7 @@ const Block = struct {
     layout: std.ArrayList(Layout),
     layout_id: usize,
 
-    pub fn init(allocator: *mem.Allocator, pfn: FunctionPointers, device: vk.Device, size: vk.DeviceSize, usage: MemoryUsage, memory_type_index: u32) !Block {
+    pub fn init(allocator: mem.Allocator, pfn: FunctionPointers, device: vk.Device, size: vk.DeviceSize, usage: MemoryUsage, memory_type_index: u32) !Block {
         var layout = std.ArrayList(Layout).init(allocator);
         try layout.append(.{ .offset = 0, .size = size, .alloc_type = .Free, .id = 0 });
 
@@ -72,7 +72,7 @@ const Block = struct {
         if (pfn.allocateMemory(device, &allocation_info, null, &memory) != .success) return error.CannotMakeNewChunk;
 
         var data: []align(8) u8 = undefined;
-        if (usage != .GpuOnly) if (pfn.mapMemory(device, memory, 0, size, 0, @ptrCast(*?*c_void, &data)) != .success) return error.MapMemoryFailed;
+        if (usage != .GpuOnly) if (pfn.mapMemory(device, memory, 0, size, 0, @ptrCast(*?*anyopaque, &data)) != .success) return error.MapMemoryFailed;
 
         return Block{
             .pfn = pfn,
@@ -102,7 +102,7 @@ const Block = struct {
 };
 
 const Pool = struct {
-    allocator: *mem.Allocator,
+    allocator: mem.Allocator,
 
     pfn: FunctionPointers,
     device: vk.Device,
@@ -113,7 +113,7 @@ const Pool = struct {
 
     blocks: std.ArrayList(?*Block),
 
-    pub fn init(allocator: *mem.Allocator, pfn: FunctionPointers, device: vk.Device, image_granularity: vk.DeviceSize, min_block_size: vk.DeviceSize, memory_type_index: u32) Pool {
+    pub fn init(allocator: mem.Allocator, pfn: FunctionPointers, device: vk.Device, image_granularity: vk.DeviceSize, min_block_size: vk.DeviceSize, memory_type_index: u32) Pool {
         return Pool{
             .allocator = allocator,
 
@@ -214,7 +214,7 @@ const Pool = struct {
 
         const allocation = Allocation{
             .block_id = location.bid,
-            .span_id =  self.blocks.items[location.bid].?.layout.items[location.sid].id,
+            .span_id = self.blocks.items[location.bid].?.layout.items[location.sid].id,
             .memory_type_index = self.memory_type_index,
 
             .memory = self.blocks.items[location.bid].?.memory,
@@ -238,7 +238,7 @@ const Pool = struct {
 
     pub fn free(self: *Pool, allocation: Allocation) void {
         var block = self.blocks.items[allocation.block_id];
-        for (block.?.layout.items) |*layout, i| {
+        for (block.?.layout.items) |*layout| {
             if (layout.id == allocation.span_id) {
                 layout.alloc_type = .Free;
                 break;
@@ -249,7 +249,7 @@ const Pool = struct {
 
 pub const Allocator = struct {
     const Self = @This();
-    allocator: *mem.Allocator,
+    allocator: mem.Allocator,
 
     pfn: FunctionPointers,
     device: vk.Device,
@@ -261,7 +261,7 @@ pub const Allocator = struct {
 
     pools: []*Pool,
 
-    pub fn init(allocator: *mem.Allocator, pfn: FunctionPointers, physical_device: vk.PhysicalDevice, device: vk.Device, min_block_size: vk.DeviceSize) !Self {
+    pub fn init(allocator: mem.Allocator, pfn: FunctionPointers, physical_device: vk.PhysicalDevice, device: vk.Device, min_block_size: vk.DeviceSize) !Self {
         var properties: vk.PhysicalDeviceProperties = undefined;
         pfn.getPhysicalDeviceProperties(physical_device, &properties);
         var mem_properties: vk.PhysicalDeviceMemoryProperties = undefined;
