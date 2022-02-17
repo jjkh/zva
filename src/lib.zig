@@ -298,8 +298,16 @@ pub const Allocator = struct {
         self.allocator.free(self.pools);
     }
 
-    pub fn alloc(self: *Self, size: vk.DeviceSize, alignment: vk.DeviceSize, memory_type_bits: u32, usage: MemoryUsage, alloc_type: AllocationType) !Allocation {
-        var required_flags: vk.MemoryPropertyFlags = .{};
+    pub fn alloc(
+        self: *Self,
+        size: vk.DeviceSize,
+        alignment: vk.DeviceSize,
+        memory_type_bits: u32,
+        usage: MemoryUsage,
+        alloc_type: AllocationType,
+        user_required_flags: vk.MemoryPropertyFlags,
+    ) !Allocation {
+        var required_flags = user_required_flags;
         var preferred_flags: vk.MemoryPropertyFlags = .{};
 
         switch (usage) {
